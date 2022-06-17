@@ -6,4 +6,4 @@ Drafting of:
 
 - Milestone management
 - Label management
-- Issue templates configuration
+- Issue templates
