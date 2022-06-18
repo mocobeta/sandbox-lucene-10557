@@ -7,3 +7,4 @@ Drafting of:
 - Milestone management
 - Label management
 - Issue templates
+- Migration script
