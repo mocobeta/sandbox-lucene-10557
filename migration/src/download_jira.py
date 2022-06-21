@@ -9,15 +9,24 @@ from pathlib import Path
 import json
 import logging
 import time
+from dataclasses import dataclass
 
 import requests
 
-from .common import JIRA_DUMP_DIRNAME, jira_dump_file, jira_issue_id
+from common import JIRA_DUMP_DIRNAME, jira_dump_file, jira_issue_id
 
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s:%(module)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 DOWNLOAD_INTERVAL_SEC = 0.5
+
+
+@dataclass
+class Attachment(object):
+    filename: str
+    created: str
+    content: str
+    mime_type: str
 
 
 def issue_uri(issue_id: str) -> str:
@@ -37,6 +46,41 @@ def dowload_issue(num: int, dump_dir: Path) -> bool:
     return True
 
 
+#def donwload_attachments(num: int, dump_dir: Path):
+#    dump_file = jira_dump_file(dump_dir, num)
+#    assert dump_file.exists()
+#    attachments_dir = jira_attachments_dir(dump_dir, num)
+#    if not attachments_dir.exists():
+#        attachments_dir.mkdir()
+#    
+#    files: dict[str, Attachment] = {}
+#    with open(dump_file) as fp:
+#        o = json.load(fp)
+#        attachments = o.get("fields").get("attachment")
+#        if not attachments:
+#            return
+#        for a in attachments:
+#            filename = a.get("filename")
+#            created = a.get("created")
+#            content = a.get("content")
+#            mime_type = a.get("mimeType")
+#            if not (filename and created and content and mime_type):
+#                continue
+#            if filename not in files or created > files[filename].created:
+#                files[filename] = Attachment(filename=filename, created=created, content=content, mime_type=mime_type)
+#
+#    for (_, a) in files.items():
+#        logger.info(f"Downloading attachment {a.filename}")
+#        res = requests.get(a.content, headers={"Accept": a.mime_type})
+#        if res.status_code != 200:
+#            logger.error(f"Failed to download attachment {a.filename} in issue {jira_issue_id(num)}")
+#            continue
+#        attachment_file = attachments_dir.joinpath(a.filename)
+#        with open(attachment_file, "wb") as fp:
+#            fp.write(res.content)
+#        time.sleep(DOWNLOAD_INTERVAL_SEC)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--min', type=int, dest='min', required=False, default=1, help='Minimum Jira issue number to be donloaded')
@@ -51,6 +95,7 @@ if __name__ == "__main__":
     if not args.max:
         logger.info(f"Downloading Jira issue {args.min} in {dump_dir}")
         dowload_issue(args.min, dump_dir)
+        time.sleep(DOWNLOAD_INTERVAL_SEC)
     else:
         logger.info(f"Downloading Jira issues {args.min} to {args.max} in {dump_dir}")
         for num in range(args.min, args.max + 1):

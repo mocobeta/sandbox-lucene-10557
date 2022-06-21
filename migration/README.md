@@ -23,15 +23,16 @@ export GITHUB_REPO=<your repository location> # e.g. "mocobeta/sandbox-lucene-10
 
 ## Usage
 
-### 1. Download Jira issues
+### 1. Download Jira issues and attachments
 
-`src/download_jira.py` downloads Jira issues and dumps them to JSON files in `migration/jira-dump`.
+`src/download_jira.py` downloads Jira issues and dumps them as JSON files in `migration/jira-dump`.
 
 ```
 # Download issues (specify minimum and maximum issue numbers)
 (.venv) migration $ python src/download_jira.py --min 10550 --max 10555
-[2022-06-19 18:53:39,202] INFO:download_jira: Download Jira issue 10550 to /mnt/hdd/repo/sandbox-lucene-10557/migration/jira-dump
-[2022-06-19 18:53:47,628] INFO:download_jira: Done.
+[2022-06-21 22:23:21,872] INFO:download_jira: Downloading Jira issues 10550 to 10555 in /mnt/hdd/repo/sandbox-lucene-10557/migration/jira-dump
+[2022-06-21 22:23:24,956] INFO:download_jira: Downloading attachment LUCENE-10551-test.patch
+[2022-06-21 22:23:32,061] INFO:download_jira: Done.
 
 (.venv) migration $ ls jira-dump/
 LUCENE-10550.json  LUCENE-10551.json  LUCENE-10552.json  LUCENE-10553.json  LUCENE-10554.json  LUCENE-10555.json
@@ -62,7 +63,7 @@ LUCENE-1003,https://github.com/mocobeta/migration-test-1/issues/15,15
 ### 3. Convert Jira issues to GitHub issues
 
 `src/jira2github.py` converts Jira issues to GitHub issues and dumps them to JSON files in `migration/github-data`. 
-Also this resolves all neccesarry mappings using mapping files (mutual issue links, account ids, etc.)
+Also this resolves all neccesarry mappings using mapping files (cross-issue links, account ids, etc.)
 
 ```
 # Convert issues (specify minimum and maximum issue numbers)

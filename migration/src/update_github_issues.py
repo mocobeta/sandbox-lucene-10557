@@ -29,9 +29,21 @@ def update_issue_content(issue_number: int, data_file: Path, token: str, repo: s
     return update_issue(token, repo, issue_number, issue)
 
 
-def create_issue_comments(issue_number: int, data_files: list[Path], token: str, repo: str) -> bool:
-    # FIXME
-    pass
+def create_issue_comments(issue_number: int, data_file: Path, token: str, repo: str) -> bool:
+    if not data_file.exists():
+        logger.warning(f"GitHub data file not found: {data_file}")
+        return False
+    res = True
+    with open(data_file) as fp:
+        o = json.load(fp)
+        if "comments" not in o:
+            return False
+        for c in o["comments"]:
+            comment = GHIssueComment(body=c["body"])
+            success = create_comment(token, repo, issue_number, comment)
+            if res:
+                res = success
+    return res
 
 
 if __name__ == "__main__":
@@ -64,6 +76,8 @@ if __name__ == "__main__":
             if len(cols) < 3:
                 continue
             (jira_issue_number, gh_issue_number) = (cols[0][7:], cols[2])
-            update_issue_content(int(gh_issue_number), github_data_file(data_dir, int(jira_issue_number)), github_token, github_repo)
+            data_file = github_data_file(data_dir, int(jira_issue_number))
+            if update_issue_content(int(gh_issue_number), data_file, github_token, github_repo):
+                create_issue_comments(int(gh_issue_number), data_file, github_token, github_repo)
 
     logger.info("Done.")

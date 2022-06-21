@@ -25,14 +25,21 @@ def init_github_issue(num: int, dump_dir: Path, token: str, repo: str) -> Option
         logger.warning(f"Jira dump file not found: {dump_file}")
         return None
 
-    issue = None
+    response = None
     with open(dump_file) as fp:
         o = json.load(fp)
+        # initialize issue
         summary = o.get("fields").get("summary", "")
         title = make_github_title(summary, jira_id)
         issue = GHIssue(title=title)
+        response = create_issue(token, repo, issue)
 
-    response = create_issue(token, repo, issue)
+        # initialize comments
+        #(_, issue_number) = response
+        #total_comments = o.get("fields").get("comment", {}).get("total", 0)
+        #for _ in range(total_comments):
+        #    create_comment(token, repo, issue_number, GHIssueComment(body="dummy"))
+
     return response
 
 
