@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 GITHUB_API_BASE = "https://api.github.com"
-INTERVAL = 3
+INTERVAL = 5
 
 
 @dataclass

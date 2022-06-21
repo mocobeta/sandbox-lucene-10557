@@ -79,7 +79,8 @@ if __name__ == "__main__":
                 continue
             (jira_issue_number, gh_issue_number) = (cols[0][7:], cols[2])
             data_file = github_data_file(data_dir, int(jira_issue_number))
-            if update_issue_content(int(gh_issue_number), data_file, github_token, github_repo):
-                create_issue_comments(int(gh_issue_number), data_file, github_token, github_repo)
+            update_issue_content(int(gh_issue_number), data_file, github_token, github_repo)
+            #if update_issue_content(int(gh_issue_number), data_file, github_token, github_repo):
+                #create_issue_comments(int(gh_issue_number), data_file, github_token, github_repo)
 
     logger.info("Done.")
