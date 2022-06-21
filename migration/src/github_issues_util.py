@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 GITHUB_API_BASE = "https://api.github.com"
+INTERVAL = 3
 
 
 @dataclass
@@ -50,7 +51,7 @@ def create_issue(token: str, repo: str, issue: GHIssue) -> Optional[tuple[str, i
     issue_number = res.json().get("number")
 
     logger.info(f"Issue #{issue_number} was successfully created.")
-    time.sleep(1)
+    time.sleep(INTERVAL)
     return (issue_url, issue_number)
 
 
@@ -62,7 +63,7 @@ def update_issue(token: str, repo: str, issue_number: int, issue: GHIssue) -> bo
         logger.error(f"Failed to update issue {issue.title}; status_code={res.status_code}, message={res.text}")
         return False
     logger.info(f"Issue #{issue_number} was successfully updated.")
-    time.sleep(1)
+    time.sleep(INTERVAL)
     return True
 
 
@@ -73,7 +74,7 @@ def create_comment(token: str, repo: str, issue_number: int, comment: GHIssueCom
     if res.status_code != 201:
         logger.error(f"Failed to create issue comment to {issue_number}; status_code={res.status_code}, message={res.text}")
         return False
-    time.sleep(1)
+    time.sleep(INTERVAL)
     return True
 
 
@@ -89,6 +90,6 @@ def create_file(token: str, repo: str, path: str, content: GHContent) -> Optiona
     sha = res.json().get("content").get("sha")
 
     logger.info(f"File content {path} was successfully created.")
-    time.sleep(1)
+    time.sleep(INTERVAL)
     return (download_url, sha)
 

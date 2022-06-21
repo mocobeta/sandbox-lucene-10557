@@ -76,14 +76,13 @@ if __name__ == '__main__':
             fp.write("JiraKey,GitHubUrl,GitHubNumber\n")
     assert issue_mapping_file.exists()
 
-    issue_mapping = []
-
     if not args.max:
         logger.info(f"Initializing GitHub issue for Jira issue {args.min}")
         response = init_github_issue(args.min, dump_dir, github_token, github_repo)
         if response:
             (issue_url, issue_number) = response
-            issue_mapping.append((jira_issue_id(args.min), issue_url, issue_number))
+            with open(issue_mapping_file, "a") as fp:
+                fp.write(f"{jira_issue_id(args.min)},{issue_url},{issue_number}\n")
     else:
         logger.info(f"Initializing GitHub issues for Jira issues {args.min} to {args.max}")
         with open(issue_mapping_file, "a") as fp:
@@ -91,10 +90,7 @@ if __name__ == '__main__':
                 response = init_github_issue(num, dump_dir, github_token, github_repo)
                 if response:
                     (issue_url, issue_number) = response
-                    issue_mapping.append((jira_issue_id(num), issue_url, issue_number))
-
-    with open(issue_mapping_file, "a") as fp:
-        for (jira_issue_id, issue_url, issue_number) in issue_mapping:
-            fp.write(f"{jira_issue_id},{issue_url},{issue_number}\n")
+                    with open(issue_mapping_file, "a") as fp:
+                        fp.write(f"{jira_issue_id(num)},{issue_url},{issue_number}\n")
     
     logger.info("Done.")

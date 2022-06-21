@@ -38,7 +38,9 @@ def create_issue_comments(issue_number: int, data_file: Path, token: str, repo: 
         o = json.load(fp)
         if "comments" not in o:
             return False
-        for c in o["comments"]:
+        for (i, c) in enumerate(o["comments"]):
+            if i >= 10:
+                break
             comment = GHIssueComment(body=c["body"])
             success = create_comment(token, repo, issue_number, comment)
             if res:
