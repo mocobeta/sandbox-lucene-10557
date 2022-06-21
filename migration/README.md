@@ -96,8 +96,8 @@ Second pass: `src/update_github_issues.py` updates GitHub issues with previously
 You can:
 
 * migrate all issue description and comment texts to GitHub; browsing/searching old issues should work fine.
-  * this will takes many hours (days?) due to the severe API call rate limit.
-* map Jira cross-issue links "LUCENE-xxx" to GitHub links "#yyy".
+  * this would take many hours (days?) due to the severe API call rate limit.
+* map Jira cross-issue link "LUCENE-xxx" to GitHub issue mention "#yyy".
 * extract every issue metadata from Jira and port it to labels or issue description (as plain text).
 * convert Jira markups to Markdown with parser library.
   * not perfect - there can be many conversion errors
@@ -110,6 +110,6 @@ You cannot:
 * simulate original issue reporters and comment authors; they have to be preserved in free-text forms.
 * simulate original created / updated timestamps; they have to be preserved in free-text forms.
 * migrate attached files (pathces, images, etc.) to GitHub; thoese have to ramain in Jira.
-  * it's programatically not allowed to upload files and attach them to issues.
+  * it's not allowed to programatically upload files and attach them to issues.
 * create hyperlinks from issues to GitHub accounts (reporters, comment authors, etc.) by mentions; otherwise everyone will receive huge volume of notifications.
   * still accounts can be noted with a markup `@xxxx` (without mentioing)
