@@ -98,6 +98,7 @@ You can:
 * migrate all issue description and comment texts to GitHub; browsing/searching old issues should work fine.
   * this would take many hours (days?) due to the severe API call rate limit.
 * map Jira cross-issue link "LUCENE-xxx" to GitHub issue mention "#yyy".
+* map Jira user ids to GitHub accounts if the mapping is given.
 * extract every issue metadata from Jira and port it to labels or issue description (as plain text).
 * convert Jira markups to Markdown with parser library.
   * not perfect - there can be many conversion errors
