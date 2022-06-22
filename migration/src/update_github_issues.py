@@ -40,6 +40,7 @@ def create_issue_comments(issue_number: int, data_file: Path, token: str, repo: 
             return False
         for (i, c) in enumerate(o["comments"]):
             if i >= 10:
+                # for testing, only first ten comments are ported
                 break
             comment = GHIssueComment(body=c["body"])
             success = create_comment(token, repo, issue_number, comment)
