@@ -23,71 +23,84 @@ export GITHUB_REPO=<your repository location> # e.g. "mocobeta/sandbox-lucene-10
 
 ## Usage
 
-### 1. Download Jira issues and attachments
+### 1. Download Jira issues
 
 `src/download_jira.py` downloads Jira issues and dumps them as JSON files in `migration/jira-dump`.
 
 ```
-# Download issues (specify minimum and maximum issue numbers)
-(.venv) migration $ python src/download_jira.py --min 10550 --max 10555
-[2022-06-21 22:23:21,872] INFO:download_jira: Downloading Jira issues 10550 to 10555 in /mnt/hdd/repo/sandbox-lucene-10557/migration/jira-dump
-[2022-06-21 22:23:24,956] INFO:download_jira: Downloading attachment LUCENE-10551-test.patch
-[2022-06-21 22:23:32,061] INFO:download_jira: Done.
+(.venv) migration $ python src/download_jira.py --min 10500 --max 10600
+[2022-06-26 01:57:02,408] INFO:download_jira: Downloading Jira issues in /mnt/hdd/repo/sandbox-lucene-10557/migration/jira-dump
+[2022-06-26 01:57:17,843] INFO:download_jira: Done.
 
-(.venv) migration $ ls jira-dump/
-LUCENE-10550.json  LUCENE-10551.json  LUCENE-10552.json  LUCENE-10553.json  LUCENE-10554.json  LUCENE-10555.json
+(.venv) migration $ cat log/jira2github_import_2022-06-26T01\:34\:22.log 
+[2022-06-26 01:34:22,300] INFO:jira2github_import: Converting Jira issues to GitHub issues in /mnt/hdd/repo/sandbox-lucene-10557/migration/github-import-data
+[2022-06-26 01:34:23,355] DEBUG:jira2github_import: GitHub issue data created: /mnt/hdd/repo/sandbox-lucene-10557/migration/github-import-data/GH-LUCENE-10500.json
+[2022-06-26 01:34:23,519] DEBUG:jira2github_import: GitHub issue data created: /mnt/hdd/repo/sandbox-lucene-10557/migration/github-import-data/GH-LUCENE-10501.json
+[2022-06-26 01:34:24,894] DEBUG:jira2github_import: GitHub issue data created: /mnt/hdd/repo/sandbox-lucene-10557/migration/github-import-data/GH-LUCENE-10502.json
+...
 ```
 
-### 2. Create (initialize) GitHub issues
+### 2. Convert Jira issues to GitHub issues
 
-First pass: `src/create_github_issues.py` initializes GitHub issues and writes Jira issue ID and GitHub issue number mapping to a file in `migration/mappings-data`.
+`src/jira2github_import.py` converts Jira dumps into GitHub data that are importable to [issue import API](https://gist.github.com/jonmagic/5282384165e0f86ef105). Converted JSON data is saved in `migration/github-import-data`.
+
+Also this resolves all Jira user ID - GitHub account alignment if the account mapping is given in `mapping-data/account-map.csv`.
 
 ```
-# Create issues (specify minimum and maximum issue numbers)
-(.venv) migration $ python src/create_github_issues.py --min 1000 --max 1010
-[2022-06-19 22:36:03,662] INFO:create_github_issues: Initializing GitHub issues for Jira issues 1000 to 1010
-[2022-06-19 22:36:04,166] INFO:github_issues_util: Issue https://github.com/mocobeta/migration-test-1/issues/12 was successfully created.
-[2022-06-19 22:36:04,631] INFO:github_issues_util: Issue https://github.com/mocobeta/migration-test-1/issues/13 was successfully created.
-[2022-06-19 22:36:05,228] INFO:github_issues_util: Issue https://github.com/mocobeta/migration-test-1/issues/14 was successfully created.
+(.venv) migration $ python src/jira2github_import.py --min 10500 --max 10600
+[2022-06-26 01:34:22,300] INFO:jira2github_import: Converting Jira issues to GitHub issues in /mnt/hdd/repo/sandbox-lucene-10557/migration/github-import-data
+[2022-06-26 01:36:27,739] INFO:jira2github_import: Done.
+
+(.venv) migration $ cat log/jira2github_import_2022-06-26T01\:34\:22.log
+[2022-06-26 01:34:22,300] INFO:jira2github_import: Converting Jira issues to GitHub issues in /mnt/hdd/repo/sandbox-lucene-10557/migration/github-import-data
+[2022-06-26 01:34:23,355] DEBUG:jira2github_import: GitHub issue data created: /mnt/hdd/repo/sandbox-lucene-10557/migration/github-import-data/GH-LUCENE-10500.json
+[2022-06-26 01:34:23,519] DEBUG:jira2github_import: GitHub issue data created: /mnt/hdd/repo/sandbox-lucene-10557/migration/github-import-data/GH-LUCENE-10501.json
+...
+```
+
+### 3. Import GitHub issues
+
+First pass: `src/import_github_issues.py` imports GitHub issues and comments via issue import API and writes Jira issue key - GitHub issue number mappings to a file in migration/mappings-data.
+
+```
+(.venv) migration $ python src/import_github_issues.py --min 10500 --max 10600
+[2022-06-26 01:36:46,749] INFO:import_github_issues: Importing GitHub issues
+[2022-06-26 01:47:35,979] INFO:import_github_issues: Done.
+
+(.venv) migration $ cat log/import_github_issues_2022-06-26T01\:36\:46.log
+[2022-06-26 01:36:46,749] INFO:import_github_issues: Importing GitHub issues
+[2022-06-26 01:36:52,299] DEBUG:import_github_issues: Import GitHub issue https://github.com/mocobeta/migration-test-2/issues/1 was successfully completed.
+[2022-06-26 01:36:57,883] DEBUG:import_github_issues: Import GitHub issue https://github.com/mocobeta/migration-test-2/issues/2 was successfully completed.
+[2022-06-26 01:37:03,405] DEBUG:import_github_issues: Import GitHub issue https://github.com/mocobeta/migration-test-2/issues/3 was successfully completed.
 ...
 
 (.venv) migration $ cat mappings-data/issue-map.csv
 JiraKey,GitHubUrl,GitHubNumber
-LUCENE-1000,https://github.com/mocobeta/migration-test-1/issues/12,12
-LUCENE-1001,https://github.com/mocobeta/migration-test-1/issues/13,13
-LUCENE-1002,https://github.com/mocobeta/migration-test-1/issues/14,14
-LUCENE-1003,https://github.com/mocobeta/migration-test-1/issues/15,15
+LUCENE-10500,https://github.com/mocobeta/migration-test-2/issues/1,1
+LUCENE-10501,https://github.com/mocobeta/migration-test-2/issues/2,2
+LUCENE-10502,https://github.com/mocobeta/migration-test-2/issues/3,3
 ...
-```
-
-### 3. Convert Jira issues to GitHub issues
-
-`src/jira2github.py` converts Jira issues to GitHub issues and dumps them to JSON files in `migration/github-data`. 
-Also this resolves all neccesarry mappings using mapping files (cross-issue links, account ids, etc.)
-
-```
-# Convert issues (specify minimum and maximum issue numbers)
-(.venv) migration $ python src/jira2github.py --min 1000 --max 1010
-[2022-06-19 23:59:12,349] INFO:jira2github: Converting Jira issues 1000 to 1010 in /mnt/hdd/repo/sandbox-lucene-10557/migration/github-data
-
-(.venv) migration $ ls github-data/
-GH-LUCENE-1000.json  GH-LUCENE-1002.json  GH-LUCENE-1004.json  GH-LUCENE-1006.json  GH-LUCENE-1008.json  GH-LUCENE-1010.json
-GH-LUCENE-1001.json  GH-LUCENE-1003.json  GH-LUCENE-1005.json  GH-LUCENE-1007.json  GH-LUCENE-1009.json  
 ```
 
 ### 4. Update GitHub issues and comments
 
-Second pass: `src/update_github_issues.py` updates GitHub issues with previously created issue mapping and data files.
+Second pass: `src/update_issue_links.py` 1) iterates all imported GitHub issue descriptions and comments; 2) embed correct GitHub issue number next to the corresponding Jira issue id with previously created issue mapping; 3) updates them if the texts are changed.
+
+e.g.: if `LUCENE-10500` is mapped to GitHub issue `#100`, then all text fragments `LUCENE-10500`  in issue descriptions and comments will be updated to `LUCENE-10500 (#100)`.
 
 ```
-# Update issues and comments
+(.venv) migration $ python src/update_issue_links.py
+[2022-06-26 01:59:43,324] INFO:update_issue_links: Updating GitHub issues
+[2022-06-26 02:17:38,332] INFO:update_issue_links: Done.
 
-(.venv) migration $ python src/update_github_issues.py 
-[2022-06-20 00:44:31,638] INFO:github_issues_util: Issue #12 was successfully updated.
-[2022-06-20 00:44:32,356] INFO:github_issues_util: Issue #13 was successfully updated.
-[2022-06-20 00:44:33,415] INFO:github_issues_util: Issue #14 was successfully updated.
-[2022-06-20 00:44:34,039] INFO:github_issues_util: Issue #15 was successfully updated.
-[2022-06-20 00:44:34,734] INFO:github_issues_util: Issue #16 was successfully updated.
+(.venv) migration $ cat log/update_issue_links_2022-06-26T01\:59\:43.log
+[2022-06-26 01:59:43,324] INFO:update_issue_links: Updating GitHub issues
+[2022-06-26 01:59:45,586] DEBUG:update_issue_links: Issue 1 does not contain any cross-issue links; nothing to do.
+[2022-06-26 01:59:50,062] DEBUG:update_issue_links: # comments in issue 1 = 3
+[2022-06-26 01:59:52,601] DEBUG:update_issue_links: Comment 1166321470 was successfully updated.
+[2022-06-26 01:59:55,164] DEBUG:update_issue_links: Comment 1166321472 was successfully updated.
+[2022-06-26 01:59:55,165] DEBUG:update_issue_links: Comment 1166321473 does not contain any cross-issue links; nothing to do.
+[2022-06-26 01:59:57,426] DEBUG:update_issue_links: Issue 2 does not contain any cross-issue links; nothing to do.
 ...
 ```
 
@@ -108,9 +121,6 @@ You can:
 
 You cannot:
 
-* simulate original authors and timestamps; they have to be preserved in free-text forms.
+* simulate original issue reporters or comment authors; they have to be preserved in free-text forms.
 * migrate attached files (patches, images, etc.) to GitHub; these have to remain in Jira.
    * it's not allowed to programmatically upload files and attach them to issues.
-* create hyperlinks from issues to GitHub accounts (reporters, comment authors, etc.) by mentions; otherwise everyone will receive a huge volume of notifications.
-   * still accounts can be noted with a markup `@xxxx` (without mentioning) in their right place
-* "bulk" import issues/comments. Each resource has to be posted one by one. Migration would take many hours (perhaps days?) due to the severe API call rate limit.

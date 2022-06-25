@@ -1,10 +1,7 @@
 from pathlib import Path
-import logging
-from datetime import datetime
-
-LOG_DIRNAME = "log"
 
 JIRA_DUMP_DIRNAME = "jira-dump"
+GITHUB_DATA_DIRNAME = "github-data"
 GITHUB_IMPORT_DATA_DIRNAME = "github-import-data"
 MAPPINGS_DATA_DIRNAME = "mappings-data"
 
@@ -14,26 +11,8 @@ ACCOUNT_MAPPING_FILENAME = "account-map.csv"
 ASF_JIRA_BASE_URL = "https://issues.apache.org/jira/browse"
 
 
-logging.basicConfig(level=logging.DEBUG, handlers=[])
-
-def logging_setup(log_dir: Path, name: str) -> logging.Logger:
-    if not log_dir.exists():
-        log_dir.mkdir()
-    formatter = logging.Formatter("[%(asctime)s] %(levelname)s:%(module)s: %(message)s")
-    file_handler = logging.FileHandler(log_dir.joinpath(f'{name}_{datetime.now().isoformat(timespec="seconds")}.log'))
-    file_handler.setLevel(logging.DEBUG)
-    file_handler.setFormatter(formatter)
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    console_handler.setFormatter(formatter)
-    logger = logging.getLogger(name)
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
-    return logger
-
-
-def jira_issue_url(issue_id: str) -> str:
-    return ASF_JIRA_BASE_URL + f"/{issue_id}"
+def jira_issue_url(issue_number: int) -> str:
+    return ASF_JIRA_BASE_URL + f"/{jira_issue_id(issue_number)}"
 
 
 def jira_issue_id(issue_number: int) -> str:
@@ -54,7 +33,7 @@ def make_github_title(summary: str, jira_id: str) -> str:
     return f"{summary} (Jira: {jira_id})"
 
 
-def read_issue_id_map(issue_mapping_file: Path) -> dict[str, int]:
+def read_issue_id_map(issue_mapping_file: Path) -> dict[str, str]:
     id_map = {}
     with open(issue_mapping_file) as fp:
         fp.readline()  # skip header
@@ -62,7 +41,7 @@ def read_issue_id_map(issue_mapping_file: Path) -> dict[str, int]:
             cols = line.strip().split(",")
             if len(cols) < 3:
                 continue
-            id_map[cols[0]] = int(cols[2])  # jira issue key -> github issue number
+            id_map[cols[0]] = cols[2]  # jira issue key -> github issue number
     return id_map
 
 

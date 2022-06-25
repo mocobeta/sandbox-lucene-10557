@@ -1,22 +1,22 @@
 #
 # Create local dump of Jira issues 
 # Usage:
-#   python src/download_jira.py --issues <issue number list>
 #   python src/download_jira.py --min <min issue number> --max <max issue number>
 #
 
 import argparse
 from pathlib import Path
 import json
+import logging
 import time
 from dataclasses import dataclass
 
 import requests
 
-from common import LOG_DIRNAME, JIRA_DUMP_DIRNAME, logging_setup, jira_dump_file, jira_issue_id
+from common import JIRA_DUMP_DIRNAME, jira_dump_file, jira_issue_id
 
-log_dir = Path(__file__).resolve().parent.parent.joinpath(LOG_DIRNAME)
-logger = logging_setup(log_dir, "download_jira")
+logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s:%(module)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 DOWNLOAD_INTERVAL_SEC = 0.5
 
@@ -43,7 +43,6 @@ def dowload_issue(num: int, dump_dir: Path) -> bool:
     dump_file = jira_dump_file(dump_dir, num)
     with open(dump_file, "w") as fp:
         json.dump(res.json(), fp, indent=2)
-    logger.debug(f"Jira issue {issue_id} was downloaded in {dump_file}.")
     return True
 
 
@@ -84,7 +83,6 @@ def dowload_issue(num: int, dump_dir: Path) -> bool:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--issues', type=int, required=False, nargs='*', help='Jira issue number list to be downloaded')    
     parser.add_argument('--min', type=int, dest='min', required=False, default=1, help='Minimum Jira issue number to be donloaded')
     parser.add_argument('--max', type=int, dest='max', required=False, help='Maximum Jira issue number to be donloaded')
     args = parser.parse_args()
@@ -94,19 +92,17 @@ if __name__ == "__main__":
         dump_dir.mkdir()
     assert dump_dir.exists()
 
-    issues = []
-    if args.issues:
-        issues = args.issues
-    else:
-        if args.max:
-            issues.extend(list(range(args.min, args.max + 1)))
-        else:
-            issues.append(args.min)
-    
-    logger.info(f"Downloading Jira issues in {dump_dir}")
-    for num in issues:
-        dowload_issue(num, dump_dir)
-        time.sleep(DOWNLOAD_INTERVAL_SEC)
+    print(args.issues)
+
+    #if not args.max:
+    #    logger.info(f"Downloading Jira issue {args.min} in {dump_dir}")
+    #    dowload_issue(args.min, dump_dir)
+    #    time.sleep(DOWNLOAD_INTERVAL_SEC)
+    #else:
+    #    logger.info(f"Downloading Jira issues {args.min} to {args.max} in {dump_dir}")
+    #    for num in range(args.min, args.max + 1):
+    #        dowload_issue(num, dump_dir)
+    #        time.sleep(DOWNLOAD_INTERVAL_SEC)
     
     logger.info("Done.")
     

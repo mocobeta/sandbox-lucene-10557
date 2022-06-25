@@ -9,5 +9,6 @@ venv/
 
 *.json
 *.csv
-
 .env
+
+log/

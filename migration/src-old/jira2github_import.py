@@ -1,31 +1,25 @@
 #
 # Convert Jira issues to GitHub issues for Import Issues API (https://gist.github.com/jonmagic/5282384165e0f86ef105)
 # Usage:
-#   python src/jira2github_import.py --issues <issue number list>
 #   python src/jira2github_import.py --min <min issue number> --max <max issue number>
 #
 
 import argparse
 from pathlib import Path
 import json
+import logging
 import sys
 
-from common import LOG_DIRNAME, JIRA_DUMP_DIRNAME, GITHUB_IMPORT_DATA_DIRNAME, MAPPINGS_DATA_DIRNAME, ACCOUNT_MAPPING_FILENAME, ISSUE_TYPE_TO_LABEL_MAP, COMPONENT_TO_LABEL_MAP, \
-    logging_setup, jira_issue_url, jira_dump_file, jira_issue_id, github_data_file, make_github_title, read_account_map
+from common import JIRA_DUMP_DIRNAME, GITHUB_IMPORT_DATA_DIRNAME, MAPPINGS_DATA_DIRNAME, ACCOUNT_MAPPING_FILENAME, ISSUE_TYPE_TO_LABEL_MAP, COMPONENT_TO_LABEL_MAP, \
+    jira_issue_url, jira_dump_file, jira_issue_id, github_data_file, make_github_title, read_account_map
 from jira_util import *
 
-log_dir = Path(__file__).resolve().parent.parent.joinpath(LOG_DIRNAME)
-logger = logging_setup(log_dir, "jira2github_import")
+logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s:%(module)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 
 def may_markup(gh_account: str) -> bool:
     return gh_account if gh_account in ["@mocobeta", "@dweiss"] else f"`{gh_account}`"
-
-
-def jira_timestamp_to_github_timestamp(ts: str) -> str:
-    # convert Jira timestamp format to GitHub acceptable format
-    # e.g., "2006-06-06T06:24:38.000+0000" -> "2006-06-06T06:24:38Z"
-    return ts[:-9] + "Z"
 
 
 def convert_issue(num: int, dump_dir: Path, output_dir: Path, account_map: dict[str, str]) -> bool:
@@ -61,12 +55,12 @@ def convert_issue(num: int, dump_dir: Path, output_dir: Path, account_map: dict[
         # embed github issue number next to linked issue keys
         linked_issues_list_items = []
         for jira_key in linked_issues:
-            linked_issues_list_items.append(f"- {jira_key} : [Jira link]({jira_issue_url(jira_key)})\n")
+            linked_issues_list_items.append(f"- {jira_key}\n")
         
         # embed github issue number next to sub task keys
         subtasks_list_items = []
         for jira_key in subtasks:
-            subtasks_list_items.append(f"- {jira_key} : [Jira link]({jira_issue_url(jira_key)})\n")
+            subtasks_list_items.append(f"- {jira_key}\n")
 
         # make pull requests list
         pull_requests_list = [f"- {x}\n" for x in pull_requests]
@@ -76,7 +70,7 @@ def convert_issue(num: int, dump_dir: Path, output_dir: Path, account_map: dict[
 ---
 ### Jira information
 
-Original Jira: {jira_issue_url(jira_id)}
+Original Jira: {jira_issue_url(num)}
 Reporter: {reporter}
 Assignee: {assignee}
 Created: {created}
@@ -97,19 +91,14 @@ Pull Requests:
             return f"{author_dispname} ({may_markup(author_gh)})" if author_gh else author_dispname
         
         comments = extract_comments(o)
-        comments_data = []
-        for (comment_author_name, comment_author_dispname, comment_body, comment_created, comment_updated) in comments:
-            data = {
-                "body": f"""{convert_text(comment_body)}
+        comments_data = [{
+            "created_at": x[3][:-9] + "Z" if x[3] else None,
+            "body":  f"""{convert_text(x[2])}
 
-Author: {comment_author(comment_author_name, comment_author_dispname)}
-Created: {comment_created}
-Updated: {comment_updated}
-"""
-            }
-            if comment_created:
-                data["created_at"] = jira_timestamp_to_github_timestamp(comment_created)
-            comments_data.append(data)
+Author: {comment_author(x[0], x[1])}
+Created: {x[3]}
+Updated: {x[4]}        
+        """} for x in comments]
 
         labels = []
         if issue_type and ISSUE_TYPE_TO_LABEL_MAP.get(issue_type):
@@ -131,29 +120,24 @@ Updated: {comment_updated}
             "issue": {
                 "title": make_github_title(summary, jira_id),
                 "body": body,
+                "created_at": created[:-9] + "Z" if created else None,
+                #"closed_at": resolutiondate[:-9] + "Z" if resolutiondate else None,
+                "updated_at": updated[:-9] + "Z" if updated else None,
                 "closed": status in ["Closed", "Resolved"],
                 "labels": labels,
             },
             "comments": comments_data
         }
-        if created:
-            data["issue"]["created_at"] = jira_timestamp_to_github_timestamp(created)
-        if updated:
-            data["issue"]["updated_at"] = jira_timestamp_to_github_timestamp(updated)
-        if resolutiondate:
-            data["issue"]["closed_at"] = jira_timestamp_to_github_timestamp(resolutiondate)
 
         data_file = github_data_file(output_dir, num)
         with open(data_file, "w") as fp:
             json.dump(data, fp, indent=2)
 
-    logger.debug(f"GitHub issue data created: {data_file}")
     return True
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--issues', type=int, required=False, nargs='*', help='Jira issue number list to be downloaded')
     parser.add_argument('--min', type=int, dest='min', required=False, default=1, help='Minimum Jira issue number to be converted')
     parser.add_argument('--max', type=int, dest='max', required=False, help='Maximum Jira issue number to be converted')
     args = parser.parse_args()
@@ -172,19 +156,10 @@ if __name__ == "__main__":
     assert output_dir.exists()
 
     account_map = read_account_map(account_mapping_file) if account_mapping_file else {}
+    min = args.min
+    max = args.max if args.max else args.min
 
-    issues = []
-    if args.issues:
-        issues = args.issues
-    else:
-        if args.max:
-            issues.extend(list(range(args.min, args.max + 1)))
-        else:
-            issues.append(args.min)
-
-    logger.info(f"Converting Jira issues to GitHub issues in {output_dir}")
-    for num in issues:
+    logger.info(f"Converting Jira issues {args.min} to {args.max} in {output_dir}")
+    for num in range(min, max + 1):
         convert_issue(num, dump_dir, output_dir, account_map)
-    
-    logger.info("Done.")
 

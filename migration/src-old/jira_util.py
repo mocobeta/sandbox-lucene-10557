@@ -122,13 +122,10 @@ def extract_pull_requests(o: dict) -> list[str]:
     return res
 
 
-REGEX_JIRA_KEY = re.compile(r"[^/]LUCENE-\d+")
+REGEX_JIRA_KEY = re.compile(r"LUCENE-\d+")
 REGEX_MENTION = re.compile(r"@\w+")
 
-
-def convert_text(text: str) -> str:
-    """Convert Jira markup to Markdown
-    """
+def convert_text(text: str, issue_id_map: Optional[dict[str, str]] = None) -> str:
     text = jira2markdown.convert(text)
 
     # markup @ mentions with ``
@@ -138,18 +135,15 @@ def convert_text(text: str) -> str:
         for m in mentions:
             with_backtick = f"`{m}`"
             text = text.replace(m, with_backtick)
-    return text
 
-
-def embed_gh_issue_link(text: str, issue_id_map: dict[str, str]) -> str:
-    """Embed GitHub issue number
-    """
-    jira_keys = [m[1:] for m in re.findall(REGEX_JIRA_KEY, text)]
-    if jira_keys:
-        jira_keys = set(jira_keys)
-        for key in jira_keys:
-            gh_number = issue_id_map.get(key)
-            if gh_number:
-                new_key = f"{key} (#{gh_number})"
-                text = text.replace(key, new_key)
+    # resolve cross-issue link
+    if issue_id_map:
+        jira_keys = re.findall(REGEX_JIRA_KEY, text)
+        if jira_keys:
+            jira_keys = set(jira_keys)
+            for key in jira_keys:
+                gh_number = issue_id_map.get(key)
+                if gh_number:
+                    new_key = f"{key} (#{gh_number})"
+                    text = text.replace(key, new_key)
     return text
