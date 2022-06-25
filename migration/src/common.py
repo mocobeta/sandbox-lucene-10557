@@ -2,6 +2,7 @@ from pathlib import Path
 
 JIRA_DUMP_DIRNAME = "jira-dump"
 GITHUB_DATA_DIRNAME = "github-data"
+GITHUB_IMPORT_DATA_DIRNAME = "github-import-data"
 MAPPINGS_DATA_DIRNAME = "mappings-data"
 
 ISSUE_MAPPING_FILENAME = "issue-map.csv"

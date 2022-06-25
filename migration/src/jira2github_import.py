@@ -1,7 +1,7 @@
 #
-# Convert Jira issues to GitHub issues
+# Convert Jira issues to GitHub issues for Import Issues API (https://gist.github.com/jonmagic/5282384165e0f86ef105)
 # Usage:
-#   python src/jira2github.py --min <min issue number> --max <max issue number>
+#   python src/jira2github_import.py --min <min issue number> --max <max issue number>
 #
 
 import argparse
@@ -10,16 +10,19 @@ import json
 import logging
 import sys
 
-
-from common import JIRA_DUMP_DIRNAME, GITHUB_DATA_DIRNAME, MAPPINGS_DATA_DIRNAME, ISSUE_MAPPING_FILENAME, ACCOUNT_MAPPING_FILENAME, ISSUE_TYPE_TO_LABEL_MAP, COMPONENT_TO_LABEL_MAP, \
-    jira_issue_url, jira_dump_file, jira_issue_id, github_data_file, make_github_title, read_issue_id_map, read_account_map
+from common import JIRA_DUMP_DIRNAME, GITHUB_IMPORT_DATA_DIRNAME, MAPPINGS_DATA_DIRNAME, ACCOUNT_MAPPING_FILENAME, ISSUE_TYPE_TO_LABEL_MAP, COMPONENT_TO_LABEL_MAP, \
+    jira_issue_url, jira_dump_file, jira_issue_id, github_data_file, make_github_title, read_account_map
 from jira_util import *
 
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s:%(module)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
-def convert_issue(num: int, dump_dir: Path, output_dir: Path, issue_id_map: dict[str, str], account_map: dict[str, str]) -> bool:
+def may_markup(gh_account: str) -> bool:
+    return gh_account if gh_account in ["@mocobeta", "@dweiss"] else f"`{gh_account}`"
+
+
+def convert_issue(num: int, dump_dir: Path, output_dir: Path, account_map: dict[str, str]) -> bool:
     jira_id = jira_issue_id(num)
     dump_file = jira_dump_file(dump_dir, num)
     if not dump_file.exists():
@@ -45,26 +48,24 @@ def convert_issue(num: int, dump_dir: Path, output_dir: Path, issue_id_map: dict
         pull_requests =extract_pull_requests(o)
 
         reporter_gh = account_map.get(reporter_name)
-        reporter = f"{reporter_dispname} (`{reporter_gh}`)" if reporter_gh else f"{reporter_dispname}"
+        reporter = f"{reporter_dispname} ({may_markup(reporter_gh)})" if reporter_gh else f"{reporter_dispname}"
         assignee_gh = account_map.get(assignee_name)
-        assignee = f"{assignee_dispname} (`{assignee_gh}`)" if assignee_gh else f"{assignee_dispname}"
+        assignee = f"{assignee_dispname} ({may_markup(assignee_gh)})" if assignee_gh else f"{assignee_dispname}"
 
         # embed github issue number next to linked issue keys
-        linked_issues_with_gh_links = []
+        linked_issues_list_items = []
         for jira_key in linked_issues:
-            num_gh = issue_id_map.get(jira_key)
-            linked_issues_with_gh_links.append(f"- {jira_key}\n" if not num_gh else f"- {jira_key} (#{num_gh})\n")
+            linked_issues_list_items.append(f"- {jira_key}\n")
         
         # embed github issue number next to sub task keys
-        subtasks_with_gh_links = []
+        subtasks_list_items = []
         for jira_key in subtasks:
-            num_gh = issue_id_map.get(jira_key)
-            subtasks_with_gh_links.append(f"- {jira_key}\n" if not num_gh else f"- {jira_key} (#{num_gh})\n")
-        
+            subtasks_list_items.append(f"- {jira_key}\n")
+
         # make pull requests list
         pull_requests_list = [f"- {x}\n" for x in pull_requests]
 
-        body = f"""{convert_text(description, issue_id_map)}
+        body = f"""{convert_text(description)}
 
 ---
 ### Jira information
@@ -77,9 +78,9 @@ Updated: {updated}
 Resolved: {resolutiondate}
 
 Issue Links:
-{"".join(linked_issues_with_gh_links)}
+{"".join(linked_issues_list_items)}
 Sub-Tasks:
-{"".join(subtasks_with_gh_links)}
+{"".join(subtasks_list_items)}
 
 Pull Requests:
 {"".join(pull_requests_list)}
@@ -87,10 +88,12 @@ Pull Requests:
 
         def comment_author(author_name, author_dispname):
             author_gh = account_map.get(author_name)
-            return f"{author_dispname} (`{author_gh}`)" if author_gh else author_dispname
+            return f"{author_dispname} ({may_markup(author_gh)})" if author_gh else author_dispname
         
         comments = extract_comments(o)
-        comments_data = [{"body":  f"""{convert_text(x[2], issue_id_map)}
+        comments_data = [{
+            "created_at": x[3][:-9] + "Z" if x[3] else None,
+            "body":  f"""{convert_text(x[2])}
 
 Author: {comment_author(x[0], x[1])}
 Created: {x[3]}
@@ -114,10 +117,15 @@ Updated: {x[4]}
                 labels.append(COMPONENT_TO_LABEL_MAP.get(c))
 
         data = {
-            "title": make_github_title(summary, jira_id),
-            "body": body,
-            "labels": labels,
-            "state": "closed" if status in ["Closed", "Resolved"] else "open",
+            "issue": {
+                "title": make_github_title(summary, jira_id),
+                "body": body,
+                "created_at": created[:-9] + "Z" if created else None,
+                #"closed_at": resolutiondate[:-9] + "Z" if resolutiondate else None,
+                "updated_at": updated[:-9] + "Z" if updated else None,
+                "closed": status in ["Closed", "Resolved"],
+                "labels": labels,
+            },
             "comments": comments_data
         }
 
@@ -141,23 +149,17 @@ if __name__ == "__main__":
 
     mappings_dir = Path(__file__).resolve().parent.parent.joinpath(MAPPINGS_DATA_DIRNAME)
     account_mapping_file = mappings_dir.joinpath(ACCOUNT_MAPPING_FILENAME)
-    issue_mapping_file = mappings_dir.joinpath(ISSUE_MAPPING_FILENAME)
-    if not issue_mapping_file.exists():
-        logger.error(f"Issue mapping file not found {issue_mapping_file}.")
-        sys.exit(1)
 
-    output_dir = Path(__file__).resolve().parent.parent.joinpath(GITHUB_DATA_DIRNAME)
+    output_dir = Path(__file__).resolve().parent.parent.joinpath(GITHUB_IMPORT_DATA_DIRNAME)
     if not output_dir.exists():
         output_dir.mkdir()
     assert output_dir.exists()
 
     account_map = read_account_map(account_mapping_file) if account_mapping_file else {}
-    issue_id_map = read_issue_id_map(issue_mapping_file)
-    if not args.max:
-        logger.info(f"Converting Jira issue {args.min} to GitHub issue in {output_dir}")
-        convert_issue(args.min, dump_dir, output_dir, issue_id_map, account_map)
-    else:
-        logger.info(f"Converting Jira issues {args.min} to {args.max} in {output_dir}")
-        for num in range(args.min, args.max + 1):
-            convert_issue(num, dump_dir, output_dir, issue_id_map, account_map)
+    min = args.min
+    max = args.max if args.max else args.min
+
+    logger.info(f"Converting Jira issues {args.min} to {args.max} in {output_dir}")
+    for num in range(min, max + 1):
+        convert_issue(num, dump_dir, output_dir, account_map)
 

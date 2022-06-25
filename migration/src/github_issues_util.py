@@ -93,3 +93,16 @@ def create_file(token: str, repo: str, path: str, content: GHContent) -> Optiona
     time.sleep(INTERVAL)
     return (download_url, sha)
 
+
+def import_issue(token: str, repo: str, issue_data: dict):
+    url = GITHUB_API_BASE + f"/repos/{repo}/import/issues"
+    headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.golden-comet-preview+json"}
+    res = requests.post(url, headers=headers, json=issue_data)
+    print(f"status code={res.status_code}, message={res.text}")
+
+
+def check_import_status(token: str, repo: str, issue_num: int):
+    url = GITHUB_API_BASE + f"/repos/{repo}/import/issues/{issue_num}"
+    headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.golden-comet-preview+json"}
+    res = requests.get(url, headers=headers)
+    print(f"status code={res.status_code}, message={res.text}")
