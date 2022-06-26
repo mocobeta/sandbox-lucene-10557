@@ -10,7 +10,7 @@ from pathlib import Path
 import sys
 import os
 
-from common import LOG_DIRNAME, MAPPINGS_DATA_DIRNAME, ISSUE_MAPPING_FILENAME, logging_setup, read_issue_id_map
+from common import LOG_DIRNAME, MAPPINGS_DATA_DIRNAME, ISSUE_MAPPING_FILENAME, MaxRetryLimitExceedException, logging_setup, read_issue_id_map, retry_upto
 from github_issues_util import *
 from jira_util import embed_gh_issue_link
 
@@ -19,6 +19,7 @@ log_dir = Path(__file__).resolve().parent.parent.joinpath(LOG_DIRNAME)
 logger = logging_setup(log_dir, "update_issue_links")
 
 
+@retry_upto(3, 1.0, logger)
 def update_issue_link_in_issue_body(issue_number: int, issue_id_map: dict[str, str], token: str, repo: str):
     body = get_issue_body(token, repo, issue_number, logger)
     if body:
@@ -31,6 +32,7 @@ def update_issue_link_in_issue_body(issue_number: int, issue_id_map: dict[str, s
             
 
 
+@retry_upto(3, 1.0, logger)
 def update_issue_link_in_comments(issue_number: int, issue_id_map: dict[str, str], token: str, repo: str):
     comments = get_issue_comments(token, repo, issue_number, logger)
     if not comments:
@@ -78,7 +80,15 @@ if __name__ == "__main__":
     
     logger.info(f"Updating GitHub issues")
     for num in issues:
-        update_issue_link_in_issue_body(num, issue_id_map, github_token, github_repo)
-        update_issue_link_in_comments(num, issue_id_map, github_token, github_repo)
+        try:
+            update_issue_link_in_issue_body(num, issue_id_map, github_token, github_repo)
+        except MaxRetryLimitExceedException:
+            logger.error(f"Failed to update issue body. Skipped issue {num}")
+            continue
+        try:
+            update_issue_link_in_comments(num, issue_id_map, github_token, github_repo)
+        except MaxRetryLimitExceedException:
+            logger.error(f"Failed to update issue comments. Skipped issue {num}")
+            continue
 
     logger.info("Done.")

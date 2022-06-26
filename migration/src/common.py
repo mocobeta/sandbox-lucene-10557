@@ -1,6 +1,9 @@
 from pathlib import Path
 import logging
 from datetime import datetime
+import functools
+import time
+
 
 LOG_DIRNAME = "log"
 
@@ -51,7 +54,7 @@ def github_data_file(data_dir: Path, issue_number: int) -> Path:
 
 
 def make_github_title(summary: str, jira_id: str) -> str:
-    return f"{summary} (Jira: {jira_id})"
+    return f"{summary} [{jira_id}]"
 
 
 def read_issue_id_map(issue_mapping_file: Path) -> dict[str, int]:
@@ -76,6 +79,30 @@ def read_account_map(account_mapping_file: Path) -> dict[str, str]:
                 continue
             id_map[cols[0]] = cols[1]  # jira name -> github account
     return id_map
+
+
+def retry_upto(max_retry: int, interval: float, logger: logging.Logger):
+    def retry(func):
+        @functools.wraps(func)
+        def _retry(*args, **kwargs):
+            retry = 0
+            while retry < max_retry:
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    retry += 1
+                    logger.warning(f"Exception raised during function call {func}. error={str(e)} (retry={retry})")
+                    time.sleep(interval)
+                    continue
+            if retry == max_retry:
+                raise MaxRetryLimitExceedException()
+            return None
+        return _retry
+    return retry
+
+
+class MaxRetryLimitExceedException(Exception):
+    pass
 
 
 ISSUE_TYPE_TO_LABEL_MAP = {

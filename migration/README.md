@@ -60,7 +60,7 @@ Also this resolves all Jira user ID - GitHub account alignment if the account ma
 
 ### 3. Import GitHub issues
 
-First pass: `src/import_github_issues.py` imports GitHub issues and comments via issue import API and writes Jira issue key - GitHub issue number mappings to a file in migration/mappings-data.
+First pass: `src/import_github_issues.py` imports GitHub issues and comments via issue import API. This also writes Jira issue key - GitHub issue number mappings to a file in migration/mappings-data.
 
 ```
 (.venv) migration $ python src/import_github_issues.py --min 10500 --max 10600
@@ -84,7 +84,7 @@ LUCENE-10502,https://github.com/mocobeta/migration-test-2/issues/3,3
 
 ### 4. Update GitHub issues and comments
 
-Second pass: `src/update_issue_links.py` 1) iterates all imported GitHub issue descriptions and comments; 2) embed correct GitHub issue number next to the corresponding Jira issue id with previously created issue mapping; 3) updates them if the texts are changed.
+Second pass: `src/update_issue_links.py` 1) iterates all imported GitHub issue descriptions and comments; 2) embed correct GitHub issue number next to the corresponding Jira issue key with previously created issue mapping; 3) updates them if the texts are changed.
 
 e.g.: if `LUCENE-10500` is mapped to GitHub issue `#100`, then all text fragments `LUCENE-10500`  in issue descriptions and comments will be updated to `LUCENE-10500 (#100)`.
 

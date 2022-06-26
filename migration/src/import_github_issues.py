@@ -12,7 +12,7 @@ import sys
 import os
 import time
 
-from common import LOG_DIRNAME, GITHUB_IMPORT_DATA_DIRNAME, MAPPINGS_DATA_DIRNAME, ISSUE_MAPPING_FILENAME, logging_setup, jira_issue_id, github_data_file
+from common import LOG_DIRNAME, GITHUB_IMPORT_DATA_DIRNAME, MAPPINGS_DATA_DIRNAME, ISSUE_MAPPING_FILENAME, logging_setup, jira_issue_id, github_data_file, retry_upto, MaxRetryLimitExceedException
 from github_issues_util import *
 
 log_dir = Path(__file__).resolve().parent.parent.joinpath(LOG_DIRNAME)
@@ -23,9 +23,11 @@ def issue_web_url(repo: str, issue_number: str) -> str:
     return f"https://github.com/{repo}/issues/{issue_number}"
 
 
+@retry_upto(3, 1.0, logger)
 def import_issue_with_comments(num: int, data_dir: Path, token: str, repo: str) -> Optional[tuple[str, str]]:
     data_file = github_data_file(data_dir, num)
-    assert data_file.exists()
+    if not data_file.exists():
+        return None
     with open(data_file) as fp:
         issue_data = json.load(fp)
         url = import_issue(token, repo, issue_data, logger)
@@ -86,10 +88,14 @@ if __name__ == "__main__":
 
     logger.info(f"Importing GitHub issues")
     for num in issues:
-        res = import_issue_with_comments(num, github_data_dir, github_token, github_repo)
-        if res:
-            (issue_url, issue_number) = res
-            with open(issue_mapping_file, "a") as fp:
-                fp.write(f"{jira_issue_id(num)},{issue_url},{issue_number}\n")
+        try:
+            res = import_issue_with_comments(num, github_data_dir, github_token, github_repo)
+            if res:
+                (issue_url, issue_number) = res
+                with open(issue_mapping_file, "a") as fp:
+                    fp.write(f"{jira_issue_id(num)},{issue_url},{issue_number}\n")
+        except MaxRetryLimitExceedException:
+            logger.error(f"Failed to import issue to GitHub. Skipped issue {num}")
+            continue
 
     logger.info("Done.")
