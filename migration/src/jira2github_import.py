@@ -9,6 +9,8 @@ import argparse
 from pathlib import Path
 import json
 import sys
+from urllib.parse import quote
+import os
 
 from common import LOG_DIRNAME, JIRA_DUMP_DIRNAME, GITHUB_IMPORT_DATA_DIRNAME, MAPPINGS_DATA_DIRNAME, ACCOUNT_MAPPING_FILENAME, ISSUE_TYPE_TO_LABEL_MAP, COMPONENT_TO_LABEL_MAP, \
     logging_setup, jira_issue_url, jira_dump_file, jira_issue_id, github_data_file, make_github_title, read_account_map
@@ -16,6 +18,10 @@ from jira_util import *
 
 log_dir = Path(__file__).resolve().parent.parent.joinpath(LOG_DIRNAME)
 logger = logging_setup(log_dir, "jira2github_import")
+
+
+def attachment_url(issue_num: int, filename: str, att_repo: str, att_branch: str) -> str:
+    return f"https://github.com/{att_repo}/blob/{att_branch}/attachments/{jira_issue_id(issue_num)}/{quote(filename)}"
 
 
 def may_markup(gh_account: str) -> bool:
@@ -28,7 +34,7 @@ def jira_timestamp_to_github_timestamp(ts: str) -> str:
     return ts[:-9] + "Z"
 
 
-def convert_issue(num: int, dump_dir: Path, output_dir: Path, account_map: dict[str, str]) -> bool:
+def convert_issue(num: int, dump_dir: Path, output_dir: Path, account_map: dict[str, str], att_repo: str, att_branch: str) -> bool:
     jira_id = jira_issue_id(num)
     dump_file = jira_dump_file(dump_dir, num)
     if not dump_file.exists():
@@ -49,6 +55,7 @@ def convert_issue(num: int, dump_dir: Path, output_dir: Path, account_map: dict[
         fix_versions = extract_fixversions(o)
         versions = extract_versions(o)
         components = extract_components(o)
+        attachments = extract_attachments(o)
         linked_issues = extract_issue_links(o)
         subtasks = extract_subtasks(o)
         pull_requests =extract_pull_requests(o)
@@ -57,6 +64,13 @@ def convert_issue(num: int, dump_dir: Path, output_dir: Path, account_map: dict[
         reporter = f"{reporter_dispname} ({may_markup(reporter_gh)})" if reporter_gh else f"{reporter_dispname}"
         assignee_gh = account_map.get(assignee_name)
         assignee = f"{assignee_dispname} ({may_markup(assignee_gh)})" if assignee_gh else f"{assignee_dispname}"
+
+        # make attachment list
+        attachment_list_items = []
+        att_replace_map = {}
+        for (filename, cnt) in attachments:
+            attachment_list_items.append(f"- [{filename}]({attachment_url(num, filename, att_repo, att_branch)})" + (f" (versions: {cnt})\n" if cnt > 1 else "\n"))
+            att_replace_map[filename] = attachment_url(num, filename, att_repo, att_branch)
 
         # embed github issue number next to linked issue keys
         linked_issues_list_items = []
@@ -71,7 +85,7 @@ def convert_issue(num: int, dump_dir: Path, output_dir: Path, account_map: dict[
         # make pull requests list
         pull_requests_list = [f"- {x}\n" for x in pull_requests]
 
-        body = f"""{convert_text(description)}
+        body = f"""{convert_text(description, att_replace_map)}
 
 ---
 ### Jira information
@@ -82,6 +96,9 @@ Assignee: {assignee}
 Created: {created}
 Updated: {updated}
 Resolved: {resolutiondate}
+
+Attachments:
+{"".join(attachment_list_items)}
 
 Issue Links:
 {"".join(linked_issues_list_items)}
@@ -100,7 +117,7 @@ Pull Requests:
         comments_data = []
         for (comment_author_name, comment_author_dispname, comment_body, comment_created, comment_updated) in comments:
             data = {
-                "body": f"""{convert_text(comment_body)}
+                "body": f"""{convert_text(comment_body, att_replace_map)}
 
 Author: {comment_author(comment_author_name, comment_author_dispname)}
 Created: {comment_created}
@@ -152,6 +169,15 @@ Updated: {comment_updated}
 
 
 if __name__ == "__main__":
+    github_att_repo = os.getenv("GITHUB_ATT_REPO")
+    if not github_att_repo:
+        print("Please set your GitHub attachment repo to GITHUB_ATT_REPO environment variable.")
+        sys.exit(1)
+    github_att_branch = os.getenv("GITHUB_ATT_BRANCH")
+    if not github_att_repo:
+        print("Please set your GitHub attachment branch to GITHUB_ATT_BRANCH environment variable.")
+        sys.exit(1)
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--issues', type=int, required=False, nargs='*', help='Jira issue number list to be downloaded')
     parser.add_argument('--min', type=int, dest='min', required=False, default=1, help='Minimum Jira issue number to be converted')
@@ -184,7 +210,7 @@ if __name__ == "__main__":
 
     logger.info(f"Converting Jira issues to GitHub issues in {output_dir}")
     for num in issues:
-        convert_issue(num, dump_dir, output_dir, account_map)
+        convert_issue(num, dump_dir, output_dir, account_map, github_att_repo, github_att_branch)
     
     logger.info("Done.")
 

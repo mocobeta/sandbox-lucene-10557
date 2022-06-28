@@ -1,7 +1,17 @@
 import re
+from dataclasses import dataclass
+from collections import defaultdict
 from typing import Optional
 
 import jira2markdown
+
+
+@dataclass
+class Attachment(object):
+    filename: str
+    created: str
+    content: str
+    mime_type: str
 
 
 def extract_summary(o: dict) -> str:
@@ -59,6 +69,28 @@ def extract_versions(o: dict) -> list[str]:
 
 def extract_components(o: dict) -> list[str]:
     return [x.get("name", "") for x in o.get("fields").get("components", [])]
+
+
+def extract_attachments(o: dict) -> list[tuple[str, int]]:
+    attachments = o.get("fields").get("attachment")
+    if not attachments:
+        return []
+    files = {}
+    counts = defaultdict(int)
+    for a in attachments:
+        filename = a.get("filename")
+        created = a.get("created")
+        content = a.get("content")
+        mime_type = a.get("mimeType")
+        if not (filename and created and content and mime_type):
+            continue
+        if filename not in files or created > files[filename].created:
+            files[filename] = Attachment(filename=filename, created=created, content=content, mime_type=mime_type)
+        counts[filename] += 1
+    result = []
+    for name in files.keys():
+        result.append((name, counts[name]))
+    return result
 
 
 def extract_issue_links(o: dict) -> list[str]:
@@ -124,11 +156,19 @@ def extract_pull_requests(o: dict) -> list[str]:
 
 REGEX_JIRA_KEY = re.compile(r"[^/]LUCENE-\d+")
 REGEX_MENTION = re.compile(r"@\w+")
+REGEX_LINK = re.compile(r"\[([^\]]+)\]\(([^\)]+)\)")
 
 
-def convert_text(text: str) -> str:
+def convert_text(text: str, att_replace_map: dict[str, str] = {}) -> str:
     """Convert Jira markup to Markdown
     """
+    def repl_att(m: re.Match):
+        res = m.group(0)
+        for src, repl in att_replace_map.items():
+            if m.group(2) == src:
+                res = f"[{m.group(1)}]({repl})"
+        return res
+
     text = jira2markdown.convert(text)
 
     # markup @ mentions with ``
@@ -138,6 +178,9 @@ def convert_text(text: str) -> str:
         for m in mentions:
             with_backtick = f"`{m}`"
             text = text.replace(m, with_backtick)
+    
+    text = re.sub(REGEX_LINK, repl_att, text)
+
     return text
 
 

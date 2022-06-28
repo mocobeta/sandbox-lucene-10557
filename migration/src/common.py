@@ -8,6 +8,7 @@ import time
 LOG_DIRNAME = "log"
 
 JIRA_DUMP_DIRNAME = "jira-dump"
+JIRA_ATTACHMENTS_DIRNAME = "attachments"
 GITHUB_IMPORT_DATA_DIRNAME = "github-import-data"
 MAPPINGS_DATA_DIRNAME = "mappings-data"
 
@@ -46,6 +47,11 @@ def jira_issue_id(issue_number: int) -> str:
 def jira_dump_file(dump_dir: Path, issue_number: int) -> Path:
     issue_id = jira_issue_id(issue_number)
     return dump_dir.joinpath(f"{issue_id}.json")
+
+
+def jira_attachments_dir(data_dir: Path, issue_number: int) -> Path:
+    issue_id = jira_issue_id(issue_number)
+    return data_dir.joinpath(issue_id)
 
 
 def github_data_file(data_dir: Path, issue_number: int) -> Path:

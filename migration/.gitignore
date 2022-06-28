@@ -7,8 +7,10 @@ __pycache__/
 .venv/
 venv/
 
+*.out
 *.json
 *.csv
 .env
 
 log/
+attachments/
