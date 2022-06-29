@@ -1,5 +1,7 @@
 # [WIP] Migration tools (Jira issue -> GitHub issue)
 
+**Moved to https://github.com/apache/lucene-jira-archive**
+
 ## Setup
 
 You need Python 3.9+. The scripts were tested on Linux; maybe works also on Mac and Windows (not tested).
